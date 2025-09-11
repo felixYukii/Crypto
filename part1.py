@@ -2,6 +2,7 @@ import requests
 import matplotlib.pyplot as plt
 import networkx as nx
 import datetime
+import matplotlib.dates as mdates
 
 # 1. Fetch address data
 def get_address_data():
@@ -105,6 +106,62 @@ def plot_graph(G):
     plt.title("Transaction Graph", fontsize=16)
     plt.show()
 
+# 5. Additional bar graph for analysis
+def plot_transaction_amounts(transactions):
+    # Sort transactions by time (oldest to newest)
+    transactions.sort(key=lambda x: x['time'])
+    
+    # Prepare data for plotting
+    hashes = [tx['hash'][:6] + '...' + tx['hash'][-4:] for tx in transactions]  # More readable format
+    values = [tx['value'] for tx in transactions]
+    dates = [tx['time'] for tx in transactions]
+    
+    # Create colors based on sent vs received
+    colors = ['red' if val < 0 else 'green' for val in values]
+    
+    # Create the plot with larger figure size
+    plt.figure(figsize=(16, 10))
+    bars = plt.bar(range(len(transactions)), values, color=colors, alpha=0.7)
+    
+    # Customize the plot with larger fonts
+    plt.title('Bitcoin Amount per Transaction', fontsize=20, fontweight='bold', pad=20)
+    plt.xlabel('Transaction Hash', fontsize=16, labelpad=15)
+    plt.ylabel('Bitcoin Amount', fontsize=16, labelpad=15)
+    
+    # Rotate x-axis labels 90 degrees for better readability
+    plt.xticks(range(len(transactions)), hashes, rotation=90, ha='center', fontsize=12)
+    
+    # Increase y-axis label size
+    plt.yticks(fontsize=12)
+    
+    # Add a horizontal line at y=0
+    plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    
+    # Add value labels on bars with larger font
+    for i, (bar, value) in enumerate(zip(bars, values)):
+        height = bar.get_height()
+        va = 'bottom' if value >= 0 else 'top'
+        y_offset = 0.01 if value >= 0 else -0.01
+        plt.text(bar.get_x() + bar.get_width()/2., height + y_offset,
+                 f'{value:.4f}', ha='center', va=va, fontsize=11, rotation=0)
+    
+    # Add a legend with larger font
+    plt.plot([], [], 's', color='red', label='Sent BTC', markersize=10)
+    plt.plot([], [], 's', color='green', label='Received BTC', markersize=10)
+    plt.legend(loc='upper right', fontsize=14)
+    
+    # Add grid for better readability
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Add date information to the plot with larger font
+    date_range = f"{min(dates).strftime('%Y-%m-%d')} to {max(dates).strftime('%Y-%m-%d')}"
+    plt.figtext(0.5, 0.01, f"Transaction Date Range: {date_range}", 
+                ha="center", fontsize=14, bbox={"facecolor":"orange", "alpha":0.2, "pad":10})
+    
+    # Adjust layout to prevent label cutoff
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+    plt.show()
+    
 # ===========================
 # MAIN EXECUTION
 # ===========================
@@ -118,7 +175,6 @@ if __name__ == "__main__":
     # 2. Process transactions
     print("Processing transactions...")
     transactions = process_transactions(address_data, focus_address)
-    print(transactions)
 
     # 3. Create graph
     print("Building graph...")
@@ -128,4 +184,9 @@ if __name__ == "__main__":
     print("Visualizing graph...")
     plot_graph(G)
 
+    # 5. Plot Bitcoin flow analysis
+    print("Creating Bitcoin flow analysis...")
+    plot_transaction_amounts(transactions)
+
     print("Analysis complete!")
+
