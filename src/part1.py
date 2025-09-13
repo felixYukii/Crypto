@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import datetime
 import matplotlib.dates as mdates
+import os  # Added import
+
+# Create outputs directory if it doesn't exist
+os.makedirs('outputs', exist_ok=True)
 
 # 1. Fetch address data
 def get_address_data():
@@ -104,7 +108,8 @@ def plot_graph(G):
             font_size=8)
 
     plt.title("Transaction Graph", fontsize=16)
-    plt.show()
+    plt.savefig('outputs/part1_transaction_graph.png', dpi=300, bbox_inches='tight')  # Changed to save
+    plt.close()  # Added to close the figure
 
 # 5. Additional bar graph for analysis
 def plot_transaction_amounts(transactions):
@@ -160,7 +165,8 @@ def plot_transaction_amounts(transactions):
     
     # Adjust layout to prevent label cutoff
     plt.tight_layout(rect=[0, 0.05, 1, 0.95])
-    plt.show()
+    plt.savefig('outputs/part1_bitcoin_flow_analysis.png', dpi=300, bbox_inches='tight')  # Changed to save
+    plt.close()  # Added to close the figure
     
 # ===========================
 # MAIN EXECUTION
@@ -188,5 +194,4 @@ if __name__ == "__main__":
     print("Creating Bitcoin flow analysis...")
     plot_transaction_amounts(transactions)
 
-    print("Analysis complete!")
-
+    print("Analysis complete! Check the outputs/ directory for results.")

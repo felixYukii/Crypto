@@ -1,29 +1,11 @@
-"""
-shib_forensics_full.py
-
-Robust forensic script for the Shiba Inu (SHIB) ERC-20 token using Etherscan tokentx endpoint.
-Features:
- - Respects Etherscan page * offset <= 10000 limit (uses PAGE_OFFSET default 1000)
- - Early stops fetching when requested date window is passed
- - Logs fetched timestamp range
- - Produces multiple PNGs (with safe try/except wrappers and placeholders):
-     - shib_daily_volume_anomalies_annotated.png
-     - shib_tx_size_histogram.png
-     - shib_intertx_time_histogram.png
-     - shib_wallet_hour_heatmap.png
-     - shib_flow_graph_big_edges.png
- - Saves CSVs: shib_transfers_window.csv, shib_daily_aggregates.csv, shib_flagged_events.csv, shib_top_senders/receivers
- - Edit START_DATE_STR / END_DATE_STR / CONTRACT_ADDRESS as needed
-"""
-
 import os
 import time
-import math
 import logging
 from datetime import datetime, timedelta
 import requests
 import pandas as pd
 import numpy as np
+import matplotlib.dates as mdates
 
 # Logging + headless matplotlib backend (must be set before pyplot import)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
@@ -35,14 +17,14 @@ import networkx as nx
 from sklearn.ensemble import IsolationForest
 
 # ----------------- USER CONFIG -----------------
-ETHERSCAN_API_KEY = "8BEVSDQF8511WEYYDAU8NKBS5SIZQ6Y4X2"
+ETHERSCAN_API_KEY = "YOUR_ETHERSCAN_API_KEY"  # <-- set your Etherscan API key here
 CONTRACT_ADDRESS = "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"  # Shiba Inu (SHIB) token contract on Ethereum
 START_DATE_STR = "15-08-2020"
 END_DATE_STR   = "15-09-2020"
-OUT_DIR = "shib_output_full"
+OUT_DIR = "outputs/part2_shib_analysis"  
 # Pagination safety (Etherscan requires page*offset <= 10000)
 PAGE_OFFSET = 1000   # safe default (set smaller if desired)
-SORT_ORDER = 'asc'   # 'asc' -> old->new (allows early stop when last page ts > end_dt)
+SORT_ORDER = 'asc'   # 'asc' -> old->new 
 # thresholds and tuning
 Z_THRESHOLD = 3.0
 IF_CONTAMINATION = 0.02
@@ -60,8 +42,7 @@ end_dt = parse_ddmmyyyy(END_DATE_STR) + timedelta(days=1) - timedelta(seconds=1)
 logging.info(f"Window: {start_dt.isoformat()} -> {end_dt.isoformat()} (UTC)")
 
 if ETHERSCAN_API_KEY == "YOUR_ETHERSCAN_API_KEY":
-    logging.warning("ETHERSCAN_API_KEY not provided. Set environment var ETHERSCAN_API_KEY or edit script.")
-    # We allow the script to run but Etherscan calls will fail; user should supply key.
+    logging.warning("ETHERSCAN_API_KEY not provided. Set ETHERSCAN_API_KEY in User Config in this code.")
 
 # --------- Etherscan helpers (robust pagination) ----------
 def fetch_token_transfers(api_key, contract_address, page=1, offset=1000, sort='asc'):
@@ -294,71 +275,115 @@ def safe_save_figure(figfunc, out_path, *args, **kwargs):
 
 # daily time series annotated
 def plot_daily_annotated():
+    import matplotlib.ticker as mticker
+
     out_path = os.path.join(OUT_DIR, "shib_daily_volume_anomalies_annotated.png")
     try:
-        plt.figure(figsize=(16,8))
-        if not daily.empty:
-            # Prepare data
-            dates = daily.index
-            vols = daily['onchain_volume'].fillna(0)
-            tx_counts = daily['tx_count'].fillna(0)
-
-            # Plot volume as bars
-            ax = plt.gca()
-            ax.bar(dates, vols, width=0.8, alpha=0.85, label='On-chain Volume', edgecolor='none', color='#4A90E2')
-
-            # Overlay transaction count as a thin gray line on secondary axis
-            ax2 = ax.twinx()
-            scale = vols.max() / (tx_counts.max() + 1) if tx_counts.max() > 0 else 1
-            ax2.plot(dates, tx_counts * scale, color='gray', linewidth=1.0, alpha=0.6, label='Tx Count (scaled)')
-            ax2.set_ylabel("Tx Count (scaled)")
-
-            # Grid and labels
-            ax.set_title("SHIB — Daily On-Chain Volume with Detected Anomalies", fontsize=16)
-            ax.set_ylabel("Token Volume")
-            ax.grid(axis='y', linestyle='--', alpha=0.3)
-
-            # Highlight requested window
-            ax.axvspan(start_dt, end_dt, color='#FFECB3', alpha=0.25, label='Requested Window')
-
-            # Mark anomalies with red dots and boxed annotations
-            for dt, row in daily.iterrows():
-                y = row['onchain_volume']
-                if row.get('z_flag', False) or row.get('if_anomaly', False):
-                    ax.plot(dt, y, marker='o', markersize=9, color='red', zorder=6)
-                    reasons = []
-                    if row.get('z_flag', False): 
-                        reasons.append(f"z>{Z_THRESHOLD}")
-                    if row.get('if_anomaly', False): 
-                        reasons.append("IsolationForest")
-                    
-                    txt = " & ".join(reasons)
-                    ax.annotate("Suspicious: " + txt,
-                                xy=(dt, y),
-                                xytext=(0, 20),
-                                textcoords='offset points',
-                                ha='center', va='bottom',
-                                fontsize=8,
-                                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="red", alpha=0.9),
-                                arrowprops=dict(arrowstyle="->", color="red", lw=0.8))
-
-            # Format the X-axis nicely
-            ax.xaxis.set_tick_params(rotation=30)
-            ax.xaxis.set_major_locator(plt.MaxNLocator(12))
-
-            # Combine legends from both axes
-            handles1, labels1 = ax.get_legend_handles_labels()
-            handles2, labels2 = ax2.get_legend_handles_labels()
-            ax.legend(handles1 + handles2, labels1 + labels2, loc='upper left', fontsize=9)
-
-            # Adjust limits for clarity
-            ymin = 0
-            ymax = max(vols.max() * 1.4, 1)
-            ax.set_ylim(ymin, ymax)
-
-        else:
+        plt.figure(figsize=(16,7))
+        if daily.empty:
             plt.text(0.5, 0.5, "No SHIB daily on-chain data available", ha='center', va='center', fontsize=12)
             plt.axis('off')
+            plt.tight_layout()
+            plt.savefig(out_path, dpi=300)
+            plt.close()
+            return
+
+        # window bounds (UTC-aware)
+        start_ts = pd.Timestamp(start_dt, tz="UTC")
+        end_ts = pd.Timestamp(end_dt, tz="UTC")
+
+        # crop to requested window (so bars only show in that window)
+        daily_window = daily.loc[(daily.index >= start_ts) & (daily.index <= end_ts)].copy()
+        if daily_window.empty:
+            # nothing in the window
+            plt.text(0.5, 0.5, "No SHIB daily on-chain data in the requested window", ha='center', va='center', fontsize=12)
+            plt.axis('off')
+            plt.tight_layout()
+            plt.savefig(out_path, dpi=300)
+            plt.close()
+            return
+
+        dates = daily_window.index
+        vols = daily_window['onchain_volume'].fillna(0)
+        tx_counts = daily_window['tx_count'].fillna(0)
+
+        ax = plt.gca()
+
+        # Bars (cropped)
+        ax.bar(dates, vols, width=0.8, alpha=0.9, color='#4A90E2', label='On-chain Volume', edgecolor='none')
+
+        # Secondary axis for tx counts (scaled)
+        ax2 = ax.twinx()
+        scale = vols.max() / (tx_counts.max() + 1) if tx_counts.max() > 0 else 1.0
+        ax2.plot(dates, tx_counts * scale, color='gray', linewidth=1.0, alpha=0.6, label='Tx Count (scaled)')
+        ax2.set_ylabel("Tx Count (scaled)", fontsize=9)
+
+        # Title, grid
+        ax.set_title("SHIB — Daily On-Chain Volume (window) with Detected Anomalies", fontsize=16)
+        ax.set_ylabel("Token Volume", fontsize=11)
+        ax.grid(axis='y', linestyle='--', alpha=0.35)
+
+        # Highlight requested window (subtle)
+        ax.axvspan(start_ts, end_ts, color='#FFECB3', alpha=0.15)
+
+        # Y-axis formatter: human readable units (K/M/B/T)
+        def human_fmt(x, pos):
+            # simple formatter: returns scaled value + suffix
+            if x == 0:
+                return "0"
+            abs_x = abs(x)
+            if abs_x >= 1e12:
+                return f"{x/1e12:.1f}T"
+            if abs_x >= 1e9:
+                return f"{x/1e9:.1f}B"
+            if abs_x >= 1e6:
+                return f"{x/1e6:.1f}M"
+            if abs_x >= 1e3:
+                return f"{x/1e3:.0f}K"
+            return f"{x:.0f}"
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(human_fmt))
+
+        # Place anomalies (only those in window) — small horizontal box above the bar
+        for dt, row in daily_window.iterrows():
+            if row.get('z_flag', False) or row.get('if_anomaly', False):
+                y = row['onchain_volume']
+                ax.plot(dt, y, marker='o', markersize=8, color='red', zorder=6)
+                reasons = []
+                if row.get('z_flag', False): reasons.append(f"z>{Z_THRESHOLD}")
+                if row.get('if_anomaly', False): reasons.append("IsolationForest")
+                txt = " & ".join(reasons)
+                # annotation box placed a little above the bar
+                ax.text(dt, y * 1.08 + (vols.max() * 0.01),
+                        f"Suspicious: {txt}",
+                        ha='center', va='bottom', fontsize=8, color='red',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="red", alpha=0.9))
+
+        # X-axis formatting: ticks every 3 days (adjust if too dense), rotate
+        locator = mdates.DayLocator(interval=3)
+        fmt = mdates.DateFormatter("%d-%b")
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(fmt)
+        ax.xaxis.set_tick_params(rotation=30, labelsize=9)
+
+        # Move the bottom spine down to give more room for ticks/labels/annotation
+        ax.spines['bottom'].set_position(('axes', -0.12))
+
+        # Tighten margins (give space below for labels)
+        plt.subplots_adjust(bottom=0.15, top=0.92, left=0.08, right=0.92)
+
+        # set visible x-limits exactly to window (plus small padding)
+        pad = pd.Timedelta(days=0.5)
+        ax.set_xlim(start_ts - pad, end_ts + pad)
+
+        # legend (combined)
+        handles1, labels1 = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        if handles1 or handles2:
+            ax.legend(handles1 + handles2, labels1 + labels2, loc='upper left', fontsize=9, frameon=True)
+
+        # Final y-limits (give headroom for annotation boxes)
+        y_max = vols.max()
+        ax.set_ylim(0, max(y_max * 1.35, 1))
 
         plt.tight_layout()
         plt.savefig(out_path, dpi=300)
@@ -437,77 +462,6 @@ def plot_wallet_heatmap():
         plt.close()
 
 safe_save_figure(plot_wallet_heatmap, os.path.join(OUT_DIR, "shib_wallet_hour_heatmap.png"))
-
-def plot_flow_graph():
-    out_path = os.path.join(OUT_DIR, "shib_flow_graph_big_edges.png")
-    try:
-        plt.figure(figsize=(14,10))
-        if not df_window.empty:
-            edge_agg = df_window.groupby(['from','to']).agg(amount=('value','sum')).reset_index()
-            big_edges = edge_agg[edge_agg['amount'] >= (total_window_volume * EDGE_SHARE_THRESHOLD)]
-            if big_edges.empty:
-                plt.text(0.5, 0.5, "No large transfer edges above threshold", ha='center', va='center', fontsize=12)
-                plt.axis('off')
-                plt.savefig(out_path, dpi=200)
-                plt.close()
-                return
-
-            # build graph
-            G = nx.DiGraph()
-            for _, r in big_edges.iterrows():
-                G.add_edge(r['from'], r['to'], weight=float(r['amount']))
-
-            # compute node flow sizes (sum of in+out weights)
-            node_weights = {}
-            for n in G.nodes():
-                in_w = sum(d.get('weight',0) for _,_,d in G.in_edges(n, data=True))
-                out_w = sum(d.get('weight',0) for _,_,d in G.out_edges(n, data=True))
-                node_weights[n] = in_w + out_w
-
-            # scale node sizes for plotting
-            max_node_w = max(node_weights.values()) if node_weights else 1
-            node_size = {n: 300 + 2000 * (w / max_node_w) for n,w in node_weights.items()}
-
-            # choose top nodes to label (to avoid label clutter)
-            top_nodes_by_weight = sorted(node_weights.items(), key=lambda x: x[1], reverse=True)
-            label_nodes = set([n for n,_ in top_nodes_by_weight[:20]])  # label top 20
-
-            # layout - spring layout with scale tuned to node count
-            k = 0.3 if len(G) < 50 else 0.1
-            pos = nx.spring_layout(G, k=k, seed=42, iterations=200)
-
-            # draw nodes
-            sizes = [node_size.get(n, 300) for n in G.nodes()]
-            nx.draw_networkx_nodes(G, pos, node_size=sizes, alpha=0.9)
-            # draw edges with widths scaled by weight, and partial transparency
-            weights = [d['weight'] for _,_,d in G.edges(data=True)]
-            max_w = max(weights) if weights else 1.0
-            widths = [1.0 + 6.0 * (w / max_w) for w in weights]
-            nx.draw_networkx_edges(G, pos, edge_color='gray', width=widths, alpha=0.6, arrowsize=12, arrowstyle='-|>')
-
-            # labels only for top nodes
-            labels = {n: (n[:12] + "...") for n in G.nodes() if n in label_nodes}
-            nx.draw_networkx_labels(G, pos, labels=labels, font_size=8)
-
-            plt.title("SHIB flow graph (window) — large edges (node size ∝ flow)", fontsize=14)
-            plt.axis('off')
-            plt.tight_layout()
-            plt.savefig(out_path, dpi=300)
-            plt.close()
-        else:
-            plt.text(0.5, 0.5, "No SHIB transfers in window\n(flow graph)", ha='center', va='center')
-            plt.axis('off')
-            plt.savefig(out_path, dpi=200)
-            plt.close()
-    except Exception:
-        logging.exception("plot_flow_graph failed")
-        plt.figure(figsize=(8,3))
-        plt.text(0.5,0.5,"Error creating flow graph", ha='center', va='center')
-        plt.axis('off')
-        plt.savefig(out_path, dpi=150)
-        plt.close()
-
-safe_save_figure(plot_flow_graph, os.path.join(OUT_DIR, "shib_flow_graph_big_edges.png"))
 
 logging.info("All SHIB visuals and CSVs saved to %s", OUT_DIR)
 logging.info("Summary: shib_transfers_in_window=%d ; shib_flagged_events=%d", len(df_window), len(flagged))
