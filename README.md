@@ -67,10 +67,10 @@ Many illict activities uses this level of obfuscation, so this activity is suspi
 Part 2:
 
 <img width="4800" height="2100" alt="shib_daily_volume_anomalies_annotated" src="https://github.com/user-attachments/assets/6291b646-6a55-48e1-b8a9-cbeb0d86ac60" />
-There's a spike around September 4th marked as "Suspicious: z>3.0" with extremely high on-chain volume (300+ trillion tokens). This represents a statistical anomaly, over 3 standard deviations from normal activity. One common reasons is it's a pump-and-dump scheme.
+There's a spike around September 4th marked as "Suspicious: z>3.0" with extremely high on-chain volume (300+ trillion tokens). This represents a statistical anomaly, over 3 standard deviations from normal activity. One common reasons is it's a pump-and-dump scheme.\
 
 <img width="1200" height="600" alt="shib_intertx_time_histogram" src="https://github.com/user-attachments/assets/72451cc1-f648-4c87-9547-0d77770674de" />
-Histogram shows suspicious timing behaviors. While most transactions occur within seconds (the high left peak), there's an unusual spike at exactly 3600 seconds (1 hour), suggesting automation. This could indicate bot networks.
+Histogram shows suspicious timing behaviors. While most transactions occur within seconds (the high left peak), there's an unusual spike at exactly 3600 seconds (1 hour), suggesting automation. This could indicate bot networks.\
 
 <img width="1800" height="1237" alt="shib_wallet_hour_heatmap" src="https://github.com/user-attachments/assets/03689280-41b4-4065-9466-1cc1033bafe1" />
-The heatmap reveals highly suspicious patterns where wallet 0x811beed011 shows intense activity. This could be due to automated bot operations, coordinated pump-and-dump schemes and market manipulation campaigns
+The heatmap reveals highly suspicious patterns where wallet 0x811beed011 shows intense activity. This could be due to automated bot operations, coordinated pump-and-dump schemes and market manipulation campaigns.
