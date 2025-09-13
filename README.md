@@ -45,3 +45,23 @@ For Part 2, you need to:
 ETHERSCAN_API_KEY = "YOUR_ACTUAL_API_KEY"
 
 ### Results
+
+Part 1:
+<img width="3660" height="2537" alt="part1_transaction_graph" src="https://github.com/user-attachments/assets/742fb132-69d0-4536-ad20-e874469ad75c" />
+<img width="4776" height="2844" alt="part1_bitcoin_flow_analysis" src="https://github.com/user-attachments/assets/5861467c-b02b-4944-aa9c-7c2bcfa06ea4" />
+
+Transaction f933332466f954757c84e97cada98df923dfa2196c7a065de17c3282b0a08fb8 (2022-08-09)
+Type: Outgoing
+
+Value: -141.72472834 BTC
+
+Pattern: CoinJoin
+
+Description:
+The substantial transfer to an unfamiliar address is a significant warning signal, especially when there were multiple inputs. This pattern obscures the provenance of funds, likely through the use of CoinJoin. 
+
+The receiving address likely functions as an intermediary, consolidating assets from multiple users to break the observable link between source and destination addresses. The objective is to return BTC (minus fees) originating from unrelated sources, thus effectively severing ties to the original sender. 
+
+Many illict activities uses this level of obfuscation, so this activity is suspicious.
+
+Part 2:
