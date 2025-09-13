@@ -9,8 +9,7 @@ This project provides tools for analyzing cryptocurrency transactions and detect
 ## Installation
 
 1. Clone the repository:
-git clone https://github.com/yourusername/crypto-forensics-analysis.git
-cd crypto
+git clone https://github.com/felixyukii/crypto.git
 
 2. Install dependencies:
 pip install -r requirements.txt
@@ -24,6 +23,7 @@ This will:
 Fetch transaction data for address bc1qmnvc7gv9ydrq5fssl072qzd60rk3hcqzmcjtmz
 Generate a transaction graph visualization
 Create a Bitcoin flow analysis chart
+View result in /outputs
 
 Part 2: SHIB Token Forensics
 
@@ -31,9 +31,10 @@ python src/part2.py
 
 This will:
 Fetch SHIB token transfer data from Etherscan
-Analyze transactions between August 15-September 15, 2020
+Analyze transactions between August 15 to September 15, 2020
 Detect anomalous activities using statistical methods
 Generate visualizations and CSV reports
+View result in /outputs/part2_shib_analysis
 
 ### Configuration
 For Part 2, you need to:
@@ -42,3 +43,5 @@ For Part 2, you need to:
 2. Replace the placeholder API key in part2.py:
 
 ETHERSCAN_API_KEY = "YOUR_ACTUAL_API_KEY"
+
+### Results
